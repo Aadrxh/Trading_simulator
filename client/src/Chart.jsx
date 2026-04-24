@@ -84,15 +84,8 @@
       if (prevSymbolRef.current !== currentSymbol) {
 
         //remove old chart
-        // FIX: cleanup lazy loader before removing chart -- by ai
       if (chartInstanceRef.current) {
-        const oldChart = chartInstanceRef.current;
-
-        if (oldChart._lazyHandler) { // ✅ ADDED
-          oldChart.timeScale().unsubscribeVisibleLogicalRangeChange(oldChart._lazyHandler);
-        }
-
-        oldChart.remove();
+        chartInstanceRef.current.remove();
       }
 
         const chart = createChart(chartRef.current, {
@@ -135,11 +128,6 @@
         }
         series.setData(normalize(candles));
         
-        dataRef.current = normalize(candles); // ✅ ADDED
-        // 🔥 NEW: set initial earliest time
-        earliestTimeRef.current = candles[0].time; // ✅ ADDED
-
-
         //to latest
         chart.timeScale().scrollToRealTime();
         attachLazyLoader();
@@ -163,22 +151,6 @@
         seriesRef.current.update(last);
       }
 
-      // 🔥 KEEP DATA CONSISTENT
-      const lastStored = dataRef.current[dataRef.current.length - 1];
-      if (!lastStored || lastStored.time !== last.time) {
-        dataRef.current.push({
-          time: Math.floor(Number(last.time)),
-          open: Number(last.open),
-          high: Number(last.high),
-          low: Number(last.low),
-          close: Number(last.close),
-        }   );
-      }
-      //CLEANUP
-      return () => {
-        // nothing here , handled on next symbol change -- by ai
-      };
-
     }, [candles]);
 
 
@@ -198,14 +170,14 @@
           loadingRef.current = true;
 
           try {
-            const firstTime = earliestTimeRef.current; // ✅ FIXED
+            const firstTime = candles[0].time;
             if (!firstTime) return;
 
 
             console.log("🔥 LOADING MORE...");
 
             const res = await fetch(
-              `http://localhost:3000/history?symbol=${candles[0].symbol}&before=${firstTime}` // ✅ FIXED
+              `http://localhost:3000/history?symbol=${candles[0].symbol}&before=${firstTime}`
             );
 
             const older = await res.json();
@@ -214,13 +186,7 @@
 
             if (!older.length) return;
 
-            // 🔥 REAL FIX
-            const merged = [...older, ...dataRef.current]; // ✅ FIXED
-            dataRef.current = merged; // ✅ ADDED
-
-            earliestTimeRef.current = older[0].time;
-
-            seriesRef.current.setData(normalize(merged));
+            seriesRef.current.setData(normalize([...older, ...candles]));
 
           } catch (err) {
             console.error("Lazy load error:", err);
@@ -231,9 +197,6 @@
       };
 
       timeScale.subscribeVisibleLogicalRangeChange(handler);
-
-      // 🔥 store unsubscribe so we can clean later
-      chart._lazyHandler = handler;
     }
 
     return <div>

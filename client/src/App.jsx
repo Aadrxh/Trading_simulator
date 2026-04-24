@@ -1,150 +1,148 @@
-import { useState,useEffect} from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from "react";
 import Chart from "./Chart";
+import OrderBook from "./components/OrderBook";
+import OrderForm from "./components/OrderForm";
+import Portfolio from "./components/Portfolio";
+import TradeFeed from "./components/TradeFeed";
+
+const SYMBOLS = [
+  "BINANCE:BTCUSDT",
+  "BINANCE:ETHUSDT",
+  "BINANCE:SOLUSDT",
+  "BINANCE:DOGEUSDT"
+];
 
 function App() {
-  // const [price, setPrice] = useState(null);
+  const [ws, setWs] = useState(null);
   const [status, setStatus] = useState("connecting");
   const [candles, setCandles] = useState({});
+  const [portfolio, setPortfolio] = useState({ balance: 0, positions: [] });
+  const [trades, setTrades] = useState([]);
+  const [orderbook, setOrderbook] = useState({ buys: [], sells: [] });
+  const [lastPrice, setLastPrice] = useState(null);
 
-  const [selectedSymbol, setSelectedSymbol] = useState("BINANCE:BTCUSDT"); //default
+  const [selectedSymbol, setSelectedSymbol] = useState(SYMBOLS[0]);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:3000");
+    const socket = new WebSocket("ws://localhost:3000");
 
-    ws.onopen = () => {
-      console.log("✅ WS OPEN");
-      setStatus("connected");
-    };
+    socket.onopen = () => setStatus("connected");
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
       try {
-        const msg= JSON.parse(event.data);
+        const msg = JSON.parse(event.data);
 
         if (msg.type === "history") {
-
-          const grouped = {}; // FIX- grouping by symbol for easier chart updates
-          // 🔥 FIX: ignore empty history
-          if (!msg.data || msg.data.length === 0) {
-            console.warn("⚠️ Empty history received");
-            return;
-          }
-          msg.data.forEach(c => {
-            const formatted = {
-              symbol: c.symbol,
-              time: Number(c.time), // ✅ FIX
-              open: Number(c.open),
-              high: Number(c.high),
-              low: Number(c.low),
-              close: Number(c.close)
-            };
-
-            if (!grouped[c.symbol]) grouped[c.symbol] = [];
-            grouped[c.symbol].push(formatted);
+          const rows = msg.data;
+          setCandles(prev => {
+            const newState = { ...prev };
+            rows.forEach(c => {
+              const arr = newState[c.symbol] || [];
+              newState[c.symbol] = [...arr, { ...c, time: Number(c.time) }];
+            });
+            return newState;
           });
-
-          // ✅ enforce strict order + dedupe
-          Object.keys(grouped).forEach(symbol => {
-            grouped[symbol] = grouped[symbol]
-              .filter((v, i, arr) =>
-                i === arr.findIndex(x => x.time === v.time)
-              )
-              .sort((a, b) => a.time - b.time);
-          });
-
-          setCandles(grouped);
-          return;
         }
 
-      // LIVE UPDATES
-      if (msg.type === "candle") {
-        const newCandle = {
-          ...msg.data,
-          time: Number(msg.data.time)
-        };
+        if (msg.type === "candle") {
+          const c = msg.data;
 
-        setCandles((prev) => {
-          const arr = prev[newCandle.symbol] || [];
+          setCandles(prev => {
+            const arr = prev[c.symbol] || [];
+            const last = arr[arr.length - 1];
+            const candleTime = Number(c.time);
 
-          // 🔥 safety: ignore bad data
-          if (!newCandle.time) return prev;
-
-          if (arr.length === 0) {
-            return { ...prev, [newCandle.symbol]: [newCandle] };
-          }
-
-          const last = arr[arr.length - 1];
-
-          // ❌ ignore older candles (MAIN FIX)
-            if (newCandle.time < last.time) {
-              return prev;
+            if (last && last.time === candleTime) {
+              // update existing candle
+              const newArr = [...arr];
+              newArr[newArr.length - 1] = { ...c, time: candleTime };
+              return { ...prev, [c.symbol]: newArr };
             }
 
+            return {
+              ...prev,
+              [c.symbol]: [...arr, { ...c, time: candleTime }]
+            };
+          });
+        }
 
-          // same candle update
-          if (last.time === newCandle.time) {
-            const updated = [...arr];
-            updated[updated.length - 1] = newCandle;
-            return { ...prev, [newCandle.symbol]: updated };
-          }
+        if (msg.type === "portfolio") {
+          const rows = msg.data;
+          const balance = rows[0]?.usd || 0;
 
-          // new candle append
-          const updated = [...arr, newCandle];
+          const positions = rows
+            .filter(r => r.symbol)
+            .map(r => ({
+              symbol: r.symbol,
+              quantity: Number(r.quantity),
+              avg_price: Number(r.avg_price)
+            }));
 
-          // 🔥 FIX: enforce ascending  - already done in backend but still bcz api might send irregularly
-          updated.sort((a, b) => a.time - b.time);
+          setPortfolio({ balance, positions });
+        }
 
-          return {
-            ...prev,
-            [newCandle.symbol]: updated
-          };
-        });
-      }
+        if (msg.type === "trade") {
+          setTrades(prev => [msg.data, ...prev.slice(0, 20)]);
+        }
 
-      } catch {
-        console.error("Invalid data received");
-      }
+        if (msg.type === "orderbook") {
+          setOrderbook({
+            buys: msg.data.buys || [],
+            sells: msg.data.sells || []
+          });
+        }
+
+        if (msg.type === "candle") {
+          setLastPrice(msg.data.close);
+        }
+
+      } catch {}
     };
 
-    ws.onerror = (e) => {
-      console.log("ERROR",e);
-      setStatus("error");
-    };
+    socket.onerror = () => setStatus("error");
+    socket.onclose = () => setStatus("disconnected");
 
-    ws.onclose = () => {
-      console.log("disconnect hogya");
-      setStatus("disconnected");
-    };
+    setWs(socket);
 
-    return () => ws.close();
+    return () => socket.close();
   }, []);
 
-
-
-  const filteredCandles = candles[selectedSymbol] || []; // 🔥 FIX -by ai
   return (
-    <div>
-      <h1>Live Price</h1>
+    <div className="container">
+      <h1>Trading Simulator</h1>
       <p>Status: {status}</p>
 
       <div>
-        <button onClick={() => setSelectedSymbol("BINANCE:BTCUSDT")}>bitcoin</button>
-        <button onClick={() => setSelectedSymbol("BINANCE:ETHUSDT")}>etherium</button>
-        <button onClick={() => setSelectedSymbol("BINANCE:SOLUSDT")}>solana</button>
-        <button onClick={() => setSelectedSymbol("BINANCE:DOGEUSDT")}>doge</button>
+        {SYMBOLS.map(sym => (
+          <button key={sym} onClick={() => setSelectedSymbol(sym)}>
+            {sym.split(":")[1].replace("USDT", "")}
+          </button>
+        ))}
       </div>
 
-      {filteredCandles.length > 0 ? (
-        <Chart candles={filteredCandles} />
-      ) : (
-        <p>Loading chart...</p>
-      )}
+      <div className="grid">
+        <div className="card">
+          <Chart candles={candles[selectedSymbol] || []} />
+        </div>
+
+        <div className="card">
+          <OrderBook orderbook={orderbook} />
+        </div>
+
+        <div className="card">
+          <OrderForm selectedSymbol={selectedSymbol} ws={ws} lastPrice={lastPrice} />
+        </div>
+
+        <div className="card">
+          <TradeFeed trades={trades} />
+        </div>
+
+        <div className="card" style={{ gridColumn: "1 / span 2" }}>
+          <Portfolio portfolio={portfolio} />
+        </div>
+      </div>
     </div>
   );
 }
 
-
-export default App
+export default App;

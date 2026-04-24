@@ -1,0 +1,142 @@
+body {
+  margin: 0;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Layout */
+.container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.card {
+  background: #161b22;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  border: 1px solid #21262d;
+  transition: 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+}
+
+/* Headers */
+h1 {
+  margin-bottom: 5px;
+}
+
+h3 {
+  margin-top: 0;
+  font-size: 16px;
+  color: #c9d1d9;
+}
+
+/* Buttons */
+button {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: white;
+  padding: 8px 14px;
+  margin: 5px 5px 5px 0;
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #30363d;
+  border-color: #8b949e;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Inputs */
+input, select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: white;
+  padding: 8px;
+  margin: 6px 0;
+  width: 100%;
+  border-radius: 6px;
+  outline: none;
+  transition: 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: #58a6ff;
+  box-shadow: 0 0 5px rgba(88,166,255,0.4);
+}
+
+/* Orderbook */
+.order-row {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  font-size: 13px;
+  padding: 3px 0;
+  font-family: monospace;
+}
+
+.sell { color: #ff6b6b; }
+.buy { color: #4cd137; }
+
+.best {
+  font-weight: bold;
+  text-shadow: 0 0 5px rgba(255,255,255,0.2);
+}
+
+/* Depth bars */
+.depth-sell {
+  position: absolute;
+  right: 0;
+  height: 100%;
+  background: rgba(255,0,0,0.15);
+}
+
+.depth-buy {
+  position: absolute;
+  right: 0;
+  height: 100%;
+  background: rgba(0,255,0,0.15);
+}
+
+/* Spread */
+.spread {
+  text-align: center;
+  margin: 10px 0;
+  font-weight: bold;
+  color: #f0b90b;
+}
+
+/* Scrollbars (clean look) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 3px;
+}
+
+/* Utility spacing */
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
