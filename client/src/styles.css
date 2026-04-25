@@ -22,7 +22,7 @@ body {
 .card {
   background: #161b22;
   border-radius: 12px;
-  padding: 15px;
+  padding: 20px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   border: 1px solid #21262d;
   transition: 0.2s ease;
@@ -32,13 +32,31 @@ body {
   transform: translateY(-1px);
 }
 
+/* Component sections */
+.component-section {
+  background: #161b22;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #21262d;
+  margin-bottom: 0;
+}
+
+.component-item {
+  padding: 8px 0;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
 /* Headers */
 h1 {
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+  margin-top: 0;
 }
 
 h3 {
   margin-top: 0;
+  margin-bottom: 15px;
   font-size: 16px;
   color: #c9d1d9;
 }
@@ -48,8 +66,8 @@ button {
   background: #21262d;
   border: 1px solid #30363d;
   color: white;
-  padding: 8px 14px;
-  margin: 5px 5px 5px 0;
+  padding: 10px 16px;
+  margin: 8px 8px 8px 0;
   cursor: pointer;
   border-radius: 6px;
   font-weight: 500;
@@ -70,12 +88,13 @@ input, select {
   background: #0d1117;
   border: 1px solid #30363d;
   color: white;
-  padding: 8px;
-  margin: 6px 0;
+  padding: 10px;
+  margin: 10px 0;
   width: 100%;
   border-radius: 6px;
   outline: none;
   transition: 0.2s;
+  box-sizing: border-box;
 }
 
 input:focus, select:focus {
@@ -137,6 +156,12 @@ input:focus, select:focus {
 /* Utility spacing */
 .row {
   display: flex;
-  gap: 10px;
+  gap: 15px;
   flex-wrap: wrap;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }

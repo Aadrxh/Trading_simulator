@@ -109,16 +109,20 @@ function App() {
 
   return (
     <div className="container">
-      <h1>Trading Simulator</h1>
-      <p>Status: {status}</p>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+    <h2 style={{ marginBottom: "20px" }}>Trading Simulator</h2>
+    <p style={{ color: "#8b949e", margin: 0 }}>
+      Status: {status}
+    </p>
 
-      <div>
-        {SYMBOLS.map(sym => (
-          <button key={sym} onClick={() => setSelectedSymbol(sym)}>
-            {sym.split(":")[1].replace("USDT", "")}
-          </button>
-        ))}
-      </div>
+    <div style={{ marginTop: "15px" }}>
+      {SYMBOLS.map(sym => (
+        <button key={sym} onClick={() => setSelectedSymbol(sym)}>
+          {sym.split(":")[1].replace("USDT", "")}
+        </button>
+      ))}
+    </div>
+  </div>
 
       <div className="grid">
         <div className="card">

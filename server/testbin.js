@@ -7,6 +7,7 @@ import { pool } from "./db.js";
 import historyRoute from "./routes/history.js";
 import { initClientWS } from "./ws/client.js";
 import { connectBinance } from "./ws/binance.js";
+import orderRoutes from "./routes/orderRoutes.js";
 import { backfill, cleanupOldData } from "./services/backfill.js";
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(cors({
 }));
 
 app.use("/history", historyRoute);
+app.use("/orders", orderRoutes);
 
 const server = http.createServer(app);
 

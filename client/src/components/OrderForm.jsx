@@ -9,10 +9,13 @@ export default function OrderForm({ selectedSymbol, ws, lastPrice: priceFromApp 
 
   // 🔥 auto-fill price when switching to LIMIT
   useEffect(() => {
-    if (type === "LIMIT" && priceFromApp) {
+    if (type === "LIMIT" && !price && priceFromApp) {
       setPrice(priceFromApp);
     }
-  }, [type, priceFromApp]);
+  }, [type]);
+  useEffect(() => {
+    setPrice(""); // reset
+  }, [selectedSymbol]);
 
   const placeOrder = async (side) => {
     const payload = {
@@ -44,7 +47,7 @@ export default function OrderForm({ selectedSymbol, ws, lastPrice: priceFromApp 
   };
 
   return (
-    <div style={{ background: "#111", padding: 10 }}>
+    <div style={{ background: "#161b22", padding: "20px", border: "1px solid #21262d", borderRadius: "12px" }}>
       <h3>Order</h3>
 
       <select value={type} onChange={e => setType(e.target.value)}>
@@ -54,18 +57,30 @@ export default function OrderForm({ selectedSymbol, ws, lastPrice: priceFromApp 
 
       {type === "LIMIT" && (
         <input
-          placeholder="Price"
-          value={price}
-          onChange={e => setPrice(e.target.value)}
+          type="text"
+          value={quantity}
+          placeholder="Qty"
+          onChange={e => {
+            const val = e.target.value;
+            if (/^\d*\.?\d*$/.test(val)) {
+              setQuantity(val);
+            }
+          }}
         />
       )}
 
       <input
-        placeholder="Qty"
-        value={quantity}
-        onChange={e => setQuantity(e.target.value)}
-      />
+        type="text"
+        value={price}
+        placeholder="Price"
+        onChange={e => {
+          const val = e.target.value;
 
+          if (/^\d*\.?\d*$/.test(val)) {
+            setPrice(val);
+          }
+        }}
+      />
       <button onClick={() => placeOrder("BUY")}>Buy</button>
       <button onClick={() => placeOrder("SELL")}>Sell</button>
     </div>
