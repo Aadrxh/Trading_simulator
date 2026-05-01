@@ -1,25 +1,25 @@
 import { useState, useEffect } from "react";
 
-export default function OrderForm({ selectedSymbol, ws, lastPrice: priceFromApp }) {
+export default function OrderForm({ selectedSymbol,lastPrice: priceFromApp }) {
   const [quantity, setQuantity] = useState(0.01);
   const [price, setPrice] = useState("");
   const [type, setType] = useState("MARKET");
 
 
 
-  // 🔥 auto-fill price when switching to LIMIT
+  // suggesting lastprice
   useEffect(() => {
     if (type === "LIMIT" && !price && priceFromApp) {
       setPrice(priceFromApp);
     }
-  }, [type]);
+  }, [type,priceFromApp]);
+  
   useEffect(() => {
     setPrice(""); // reset
   }, [selectedSymbol]);
 
   const placeOrder = async (side) => {
     const payload = {
-      user_id: 1,
       symbol: selectedSymbol,
       type,
       side,
@@ -30,20 +30,33 @@ export default function OrderForm({ selectedSymbol, ws, lastPrice: priceFromApp 
       const parsedPrice = parseFloat(price);
 
       if (!parsedPrice || parsedPrice <= 0) {
-        alert("Enter valid price");
+        alert("Enter valid price"); // change this later
         return;
       }
 
       payload.price = parsedPrice;
     }
 
-    await fetch("http://localhost:3000/orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+    try {
+        console.log("🚀 Placing order:", payload);
+
+        const res=await fetch("http://localhost:3000/orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        console.log("✅ Status:", res.status);
+
+        const data = await res.json();
+        console.log("📦 Response:", data);
+
+      } catch (err) {
+        console.error("❌ Fetch failed:", err);
+      }
   };
 
   return (
@@ -55,32 +68,31 @@ export default function OrderForm({ selectedSymbol, ws, lastPrice: priceFromApp 
         <option value="LIMIT">Limit</option>
       </select>
 
+        <input  //to be always shown
+        type="text"
+        value={quantity}
+        placeholder="Quantity"
+        onChange={e => {
+          const val = e.target.value;
+          if (/^\d*\.?\d*$/.test(val)) {
+            setQuantity(val);
+          }
+        }}
+      />
+
       {type === "LIMIT" && (
         <input
           type="text"
-          value={quantity}
-          placeholder="Qty"
+          value={price}
+          placeholder="Price"
           onChange={e => {
             const val = e.target.value;
             if (/^\d*\.?\d*$/.test(val)) {
-              setQuantity(val);
+              setPrice(val);
             }
           }}
         />
       )}
-
-      <input
-        type="text"
-        value={price}
-        placeholder="Price"
-        onChange={e => {
-          const val = e.target.value;
-
-          if (/^\d*\.?\d*$/.test(val)) {
-            setPrice(val);
-          }
-        }}
-      />
       <button onClick={() => placeOrder("BUY")}>Buy</button>
       <button onClick={() => placeOrder("SELL")}>Sell</button>
     </div>

@@ -30,7 +30,7 @@ export async function backfill() {
           `https://api.binance.com/api/v3/klines?symbol=${clean}&interval=1m&startTime=${startTime}&limit=1000`
         );
 
-        const data = await res.json();
+        const data = await res.json(); //a 2d matrix
 
         if (!Array.isArray(data) || data.length === 0) break;
 
@@ -51,7 +51,7 @@ export async function backfill() {
 
         if (lastCandleTime === startTime) break;
 
-        startTime = lastCandleTime + 60000;
+        startTime = lastCandleTime + 60000; //milliseconds
 
         if (candles.length === 0) {
           console.log("❌ Backfill failed for:", symbol);

@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { useRef } from "react";
 import Chart from "./Chart";
 import OrderBook from "./components/OrderBook";
 import OrderForm from "./components/OrderForm";
 import Portfolio from "./components/Portfolio";
 import TradeFeed from "./components/TradeFeed";
+import Auth from "./Auth";
 
 const SYMBOLS = [
   "BINANCE:BTCUSDT",
@@ -22,6 +24,21 @@ function App() {
   const [lastPrice, setLastPrice] = useState(null);
 
   const [selectedSymbol, setSelectedSymbol] = useState(SYMBOLS[0]);
+
+  const selectedSymbolRef = useRef(selectedSymbol);
+
+  const [isAuth, setIsAuth] = useState(
+    !!localStorage.getItem("token")
+  );
+
+  useEffect(() => {
+    selectedSymbolRef.current = selectedSymbol; //for the ref
+  }, [selectedSymbol]);
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setIsAuth(false);
+  };
 
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:3000");
@@ -86,9 +103,34 @@ function App() {
         }
 
         if (msg.type === "orderbook") {
-          setOrderbook({
-            buys: msg.data.buys || [],
-            sells: msg.data.sells || []
+          if (msg.data.symbol !== selectedSymbolRef.current) return;
+
+          console.log("FRONTEND GOT:", {
+            seq: msg.seq,
+            buys: msg.data.buys?.length,
+            sells: msg.data.sells?.length
+          });
+
+          setOrderbook(prev => {
+            // 🔥 ignore stale updates
+            if (prev.seq && prev.seq > msg.seq) {
+              console.log("IGNORED STALE:", msg.seq, "<", prev.seq);
+              return prev;
+            }
+
+            const nextState = {
+              seq: msg.seq,
+              buys: [...(msg.data.buys || [])],
+              sells: [...(msg.data.sells || [])]
+            };
+
+            console.log("APPLIED ORDERBOOK:", {
+              seq: msg.seq,
+              buys: nextState.buys.length,
+              sells: nextState.sells.length
+            });
+
+            return nextState;
           });
         }
 
@@ -107,10 +149,15 @@ function App() {
     return () => socket.close();
   }, []);
 
+  if (!isAuth) {
+    return <Auth onLogin={() => setIsAuth(true)} />;
+  }
+
   return (
     <div className="container">
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
     <h2 style={{ marginBottom: "20px" }}>Trading Simulator</h2>
+    <button onClick={logout}>Logout</button>
     <p style={{ color: "#8b949e", margin: 0 }}>
       Status: {status}
     </p>
@@ -134,7 +181,7 @@ function App() {
         </div>
 
         <div className="card">
-          <OrderForm selectedSymbol={selectedSymbol} ws={ws} lastPrice={lastPrice} />
+          <OrderForm selectedSymbol={selectedSymbol} lastPrice={lastPrice} />
         </div>
 
         <div className="card">

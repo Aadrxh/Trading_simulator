@@ -3,7 +3,7 @@ import { pool } from "../db.js";
 import { symbols, lastSaved, lastSentCandle, THROTTLE_MS } from "../state/store.js";
 import { matchOrders } from "../services/orderService.js";
 
-export function connectBinance(wss) {
+export function connectBinance(wss,triggerMatch) {
   const streams = symbols
     .map(s => s.split(":")[1].toLowerCase() + "@trade")
     .join("/");
@@ -25,7 +25,7 @@ export function connectBinance(wss) {
       const price = parseFloat(trade.p);
       const now = Date.now();
 
-      if (lastSaved.get(symbol) && now - lastSaved.get(symbol) < THROTTLE_MS) {
+      if (lastSaved.get(symbol) && now - lastSaved.get(symbol) < THROTTLE_MS) { //limitng api calls as it normally runs many times in 1 second
         return;
       }
 
@@ -35,9 +35,10 @@ export function connectBinance(wss) {
         "INSERT INTO ticks (time, symbol, price) VALUES ($1, $2, $3)",
         [new Date(), symbol, price]
       );
-      await matchOrders(symbol, price);
+      triggerMatch(symbol, price);
       
-      const result = await pool.query(`
+      //ticks become candles
+      const result = await pool.query(`   
         SELECT
           FLOOR(EXTRACT(EPOCH FROM bucket)) AS time,
           FIRST(price, time) AS open,
@@ -56,7 +57,7 @@ export function connectBinance(wss) {
 
       if (!result.rows.length) return;
 
-      const latest = result.rows[0];
+      const latest = result.rows[0]; //result is an object with a parameter rows inside which contains the info
       const prev = lastSentCandle.get(symbol);
 
       if (
@@ -82,7 +83,7 @@ export function connectBinance(wss) {
         }
       });
 
-      wss.clients.forEach((ws) => {
+      wss.clients.forEach((ws) => { //boradcasting
         if (ws.readyState === ws.OPEN) {
           ws.send(message);
         }
@@ -95,6 +96,6 @@ export function connectBinance(wss) {
 
   binanceWS.on("close", () => {
     console.log("⚠️ Reconnecting Binance...");
-    setTimeout(() => connectBinance(wss), 2000);
+    setTimeout(() => connectBinance(wss), 2000); //retrying
   });
 }
