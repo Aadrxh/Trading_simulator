@@ -1,9 +1,14 @@
 export function validateOrder(data) {
-  const { user_id, symbol, type, side, price, quantity } = data;
+  const { symbol, type, side, price, quantity } = data;
 
-  if (!user_id || !symbol || !type || !side || !quantity) {
+  // ❌ user_id removed from validation (comes from auth middleware)
+  if (!symbol || !type || !side || quantity === undefined) {
     return "Missing required fields";
   }
+
+  // normalize
+  const qty = Number(quantity);
+  const pr = price !== undefined ? Number(price) : null;
 
   if (!["MARKET", "LIMIT"].includes(type)) {
     return "Invalid order type";
@@ -13,17 +18,28 @@ export function validateOrder(data) {
     return "Invalid side";
   }
 
-  if (type === "LIMIT" && (!price || price <= 0)) {
-    return "Invalid price";
-  }
-
-  if (quantity <= 0) {
+  if (Number.isNaN(qty) || qty <= 0) {
     return "Invalid quantity";
   }
 
+  if (type === "LIMIT") {
+    if (pr === null || Number.isNaN(pr) || pr <= 0) {
+      return "Invalid price";
+    }
+  }
+
   // 🔥 SECURITY: prevent huge orders
-  if (quantity > 1000000) {
+  if (qty > 1000000) {
     return "Order too large";
+  }
+
+  // 🔒 SECURITY HARDENING (precision abuse protection)
+  if (qty.toString().split(".")[1]?.length > 8) {
+    return "Quantity precision too high";
+  }
+
+  if (pr !== null && pr.toString().split(".")[1]?.length > 8) {
+    return "Price precision too high";
   }
 
   return null;

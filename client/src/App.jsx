@@ -83,19 +83,26 @@ function App() {
           });
         }
 
+        // 🔥 FIXED PORTFOLIO HANDLING
         if (msg.type === "portfolio") {
-          const rows = msg.data;
-          const balance = rows[0]?.usd || 0;
+          try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
 
-          const positions = rows
-            .filter(r => r.symbol)
-            .map(r => ({
-              symbol: r.symbol,
-              quantity: Number(r.quantity),
-              avg_price: Number(r.avg_price)
-            }));
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            const myUserId = payload.user_id;
 
-          setPortfolio({ balance, positions });
+            // 🔥 ignore other users
+            if (msg.user_id !== myUserId) return;
+
+            setPortfolio({
+              balance: Number(msg.data.balance || 0),
+              positions: msg.data.positions || []
+            });
+
+          } catch (e) {
+            console.error("Portfolio parse error:", e);
+          }
         }
 
         if (msg.type === "trade") {
@@ -156,20 +163,20 @@ function App() {
   return (
     <div className="container">
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
-    <h2 style={{ marginBottom: "20px" }}>Trading Simulator</h2>
-    <button onClick={logout}>Logout</button>
-    <p style={{ color: "#8b949e", margin: 0 }}>
-      Status: {status}
-    </p>
+        <h2 style={{ marginBottom: "20px" }}>Trading Simulator</h2>
+        <button onClick={logout}>Logout</button>
+        <p style={{ color: "#8b949e", margin: 0 }}>
+          Status: {status}
+        </p>
 
-    <div style={{ marginTop: "15px" }}>
-      {SYMBOLS.map(sym => (
-        <button key={sym} onClick={() => setSelectedSymbol(sym)}>
-          {sym.split(":")[1].replace("USDT", "")}
-        </button>
-      ))}
-    </div>
-  </div>
+        <div style={{ marginTop: "15px" }}>
+          {SYMBOLS.map(sym => (
+            <button key={sym} onClick={() => setSelectedSymbol(sym)}>
+              {sym.split(":")[1].replace("USDT", "")}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid">
         <div className="card">

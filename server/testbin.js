@@ -15,13 +15,20 @@ import { orderBook } from "./state/orderBook.js";
 import { backfill, cleanupOldData } from "./services/backfill.js";
 
 const app = express();
-app.use(express.json());
-app.use("/auth",authRoutes);
 
+// 🔥 FIX: apply security + cors BEFORE routes
 app.use(helmet());
 app.use(cors({
-  origin: ["http://localhost:5173", "http://127.0.0.1:5173"]
+  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+app.use(express.json());
+
+// routes AFTER cors
+app.use("/auth", authRoutes);
+app.use("/history", historyRoute);
 
 const server = http.createServer(app);
 
@@ -36,18 +43,15 @@ const broadcast = (data) => {
   });
 };
 
-const triggerMatch = createMatchingEngine(matchOrders, orderBook, broadcast); //a single instance so that both in this only
+const triggerMatch = createMatchingEngine(matchOrders, orderBook, broadcast);
 
-
-app.use("/history", historyRoute);
-app.use("/orders", orderRoutes(triggerMatch,broadcast));
-
+app.use("/orders", orderRoutes(triggerMatch, broadcast));
 
 async function start() {
   await cleanupOldData(pool);
   await backfill();
 
-   connectBinance(wss, triggerMatch);
+  connectBinance(wss, triggerMatch);
 
   server.listen(3000, () => {
     console.log("🚀 Binance test server running");
