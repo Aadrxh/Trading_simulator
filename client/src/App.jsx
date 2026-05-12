@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
-import { useRef } from "react";
+// client/src/App.jsx
+
+import { useState, useEffect, useRef } from "react";
+
 import Chart from "./Chart";
+
 import OrderBook from "./components/OrderBook";
 import OrderForm from "./components/OrderForm";
 import Portfolio from "./components/Portfolio";
 import TradeFeed from "./components/TradeFeed";
+
 import Auth from "./Auth";
 
 const SYMBOLS = [
@@ -15,15 +19,30 @@ const SYMBOLS = [
 ];
 
 function App() {
-  const [ws, setWs] = useState(null);
-  const [status, setStatus] = useState("connecting");
-  const [candles, setCandles] = useState({});
-  const [portfolio, setPortfolio] = useState({ balance: 0, positions: [] });
-  const [trades, setTrades] = useState([]);
-  const [orderbook, setOrderbook] = useState({ buys: [], sells: [] });
-  const [lastPrice, setLastPrice] = useState(null);
 
-  const [selectedSymbol, setSelectedSymbol] = useState(SYMBOLS[0]);
+  const [ws, setWs] = useState(null);
+
+  const [status, setStatus] = useState("connecting");
+
+  const [candles, setCandles] = useState({});
+
+  const [portfolio, setPortfolio] = useState({
+    balance: 0,
+    positions: []
+  });
+
+  const [trades, setTrades] = useState([]);
+
+  const [orderbook, setOrderbook] = useState({
+    buys: [],
+    sells: []
+  });
+
+  const [lastPrice, setLastPrice] = useState(null);
+  const [prices,setPrices]=useState({});
+
+  const [selectedSymbol, setSelectedSymbol] =
+    useState(SYMBOLS[0]);
 
   const selectedSymbolRef = useRef(selectedSymbol);
 
@@ -32,7 +51,7 @@ function App() {
   );
 
   useEffect(() => {
-    selectedSymbolRef.current = selectedSymbol; //for the ref
+    selectedSymbolRef.current = selectedSymbol;
   }, [selectedSymbol]);
 
   const logout = () => {
@@ -41,163 +60,313 @@ function App() {
   };
 
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:3000");
 
-    socket.onopen = () => setStatus("connected");
+    const token = localStorage.getItem("token");
+
+    const socket = new WebSocket(
+      `ws://localhost:3000?token=${token}`
+    );
+
+    socket.onopen = () => {
+      setStatus("connected");
+    };
 
     socket.onmessage = (event) => {
+
       try {
+
         const msg = JSON.parse(event.data);
 
+        // 🔥 HISTORY
         if (msg.type === "history") {
+
           const rows = msg.data;
+
           setCandles(prev => {
+
             const newState = { ...prev };
+
             rows.forEach(c => {
+
               const arr = newState[c.symbol] || [];
-              newState[c.symbol] = [...arr, { ...c, time: Number(c.time) }];
+
+              newState[c.symbol] = [
+                ...arr,
+                {
+                  ...c,
+                  time: Number(c.time)
+                }
+              ];
             });
+
             return newState;
           });
         }
 
+        // 🔥 LIVE CANDLE
         if (msg.type === "candle") {
+
           const c = msg.data;
 
           setCandles(prev => {
+
             const arr = prev[c.symbol] || [];
+
             const last = arr[arr.length - 1];
+
             const candleTime = Number(c.time);
 
             if (last && last.time === candleTime) {
-              // update existing candle
-              const newArr = [...arr];
-              newArr[newArr.length - 1] = { ...c, time: candleTime };
-              return { ...prev, [c.symbol]: newArr };
+
+              const updated = [...arr];
+
+              updated[updated.length - 1] = {
+                ...c,
+                time: candleTime
+              };
+
+              return {
+                ...prev,
+                [c.symbol]: updated
+              };
             }
 
             return {
               ...prev,
-              [c.symbol]: [...arr, { ...c, time: candleTime }]
+              [c.symbol]: [
+                ...arr,
+                {
+                  ...c,
+                  time: candleTime
+                }
+              ]
             };
           });
+
+          setLastPrice(c.close);
+
+          setPrices(prev => ({
+            ...prev,
+            [c.symbol]: Number(c.close)
+          }));
         }
 
-        // 🔥 FIXED PORTFOLIO HANDLING
+        // 🔥 PORTFOLIO
         if (msg.type === "portfolio") {
-          try {
-            const token = localStorage.getItem("token");
-            if (!token) return;
 
-            const payload = JSON.parse(atob(token.split(".")[1]));
-            const myUserId = payload.user_id;
+          const token = localStorage.getItem("token");
 
-            // 🔥 ignore other users
-            if (msg.user_id !== myUserId) return;
+          if (!token) return;
 
-            setPortfolio({
-              balance: Number(msg.data.balance || 0),
-              positions: msg.data.positions || []
-            });
+          const payload = JSON.parse(
+            atob(token.split(".")[1])
+          );
 
-          } catch (e) {
-            console.error("Portfolio parse error:", e);
+          const myUserId = payload.user_id;
+
+          if (msg.user_id !== myUserId) {
+            return;
           }
+
+          setPortfolio({
+            balance: Number(msg.data.balance || 0),
+            positions: msg.data.positions || []
+          });
         }
 
+        // 🔥 TRADE HISTORY
+        if (msg.type === "tradeHistory") {
+
+          const token = localStorage.getItem("token");
+
+          if (!token) return;
+
+          const payload = JSON.parse(
+            atob(token.split(".")[1])
+          );
+
+          const myUserId = payload.user_id;
+
+          const filtered =
+            (msg.data || []).filter(t =>
+              t.buyer_id === myUserId ||
+              t.seller_id === myUserId
+            );
+
+          filtered.sort(
+            (a, b) =>
+              new Date(b.created_at) -
+              new Date(a.created_at)
+          );
+
+          setTrades(filtered.slice(0, 30));
+        }
+
+        // 🔥 LIVE TRADE
         if (msg.type === "trade") {
-          setTrades(prev => [msg.data, ...prev.slice(0, 20)]);
+
+          const token = localStorage.getItem("token");
+
+          if (!token) return;
+
+          const payload = JSON.parse(
+            atob(token.split(".")[1])
+          );
+
+          const myUserId = payload.user_id;
+
+          if (
+            msg.data.buyer_id !== myUserId &&
+            msg.data.seller_id !== myUserId
+          ) {
+            return;
+          }
+
+          setTrades(prev => {
+
+            const exists = prev.some(
+              t => t.id === msg.data.id
+            );
+
+            if (exists) return prev;
+
+            return [
+              msg.data,
+              ...prev
+            ].slice(0, 30);
+          });
         }
 
+        // 🔥 ORDERBOOK
         if (msg.type === "orderbook") {
-          if (msg.data.symbol !== selectedSymbolRef.current) return;
 
-          console.log("FRONTEND GOT:", {
-            seq: msg.seq,
-            buys: msg.data.buys?.length,
-            sells: msg.data.sells?.length
-          });
+          if (
+            msg.data.symbol !==
+            selectedSymbolRef.current
+          ) {
+            return;
+          }
 
-          setOrderbook(prev => {
-            // 🔥 ignore stale updates
-            if (prev.seq && prev.seq > msg.seq) {
-              console.log("IGNORED STALE:", msg.seq, "<", prev.seq);
-              return prev;
-            }
-
-            const nextState = {
-              seq: msg.seq,
-              buys: [...(msg.data.buys || [])],
-              sells: [...(msg.data.sells || [])]
-            };
-
-            console.log("APPLIED ORDERBOOK:", {
-              seq: msg.seq,
-              buys: nextState.buys.length,
-              sells: nextState.sells.length
-            });
-
-            return nextState;
+          setOrderbook({
+            buys: [...(msg.data.buys || [])],
+            sells: [...(msg.data.sells || [])]
           });
         }
 
-        if (msg.type === "candle") {
-          setLastPrice(msg.data.close);
-        }
-
-      } catch {}
+      } catch (err) {
+        console.log(err);
+      }
     };
 
-    socket.onerror = () => setStatus("error");
-    socket.onclose = () => setStatus("disconnected");
+    socket.onerror = () => {
+      setStatus("error");
+    };
+
+    socket.onclose = () => {
+      setStatus("disconnected");
+    };
 
     setWs(socket);
 
     return () => socket.close();
+
   }, []);
 
   if (!isAuth) {
-    return <Auth onLogin={() => setIsAuth(true)} />;
+    return (
+      <Auth onLogin={() => setIsAuth(true)} />
+    );
   }
 
   return (
     <div className="container">
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <h2 style={{ marginBottom: "20px" }}>Trading Simulator</h2>
-        <button onClick={logout}>Logout</button>
-        <p style={{ color: "#8b949e", margin: 0 }}>
+
+      <div
+        style={{
+          textAlign: "center",
+          marginBottom: "20px"
+        }}
+      >
+
+        <h2 style={{ marginBottom: "20px" }}>
+          Trading Simulator
+        </h2>
+
+        <button onClick={logout}>
+          Logout
+        </button>
+
+        <p
+          style={{
+            color: "#8b949e",
+            margin: 0
+          }}
+        >
           Status: {status}
         </p>
 
         <div style={{ marginTop: "15px" }}>
+
           {SYMBOLS.map(sym => (
-            <button key={sym} onClick={() => setSelectedSymbol(sym)}>
-              {sym.split(":")[1].replace("USDT", "")}
+
+            <button
+              key={sym}
+              onClick={() =>
+                setSelectedSymbol(sym)
+              }
+            >
+              {sym
+                .split(":")[1]
+                .replace("USDT", "")}
             </button>
+
           ))}
+
         </div>
       </div>
 
       <div className="grid">
-        <div className="card">
-          <Chart candles={candles[selectedSymbol] || []} />
+
+        {/* LEFT */}
+        <div className="left-column">
+
+          <div className="card">
+            <Chart
+              candles={
+                candles[selectedSymbol] || []
+              }
+            />
+          </div>
+
+          <div className="card">
+            <OrderForm
+              selectedSymbol={selectedSymbol}
+              lastPrice={lastPrice}
+            />
+          </div>
+
+          <div className="card">
+            <Portfolio
+              portfolio={portfolio}
+              prices={prices}
+            />
+          </div>
+
         </div>
 
-        <div className="card">
-          <OrderBook orderbook={orderbook} />
-        </div>
+        {/* RIGHT */}
+        <div className="right-column">
 
-        <div className="card">
-          <OrderForm selectedSymbol={selectedSymbol} lastPrice={lastPrice} />
-        </div>
+          <div className="card">
+            <OrderBook
+              orderbook={orderbook}
+            />
+          </div>
 
-        <div className="card">
           <TradeFeed trades={trades} />
+
         </div>
 
-        <div className="card" style={{ gridColumn: "1 / span 2" }}>
-          <Portfolio portfolio={portfolio} />
-        </div>
       </div>
     </div>
   );

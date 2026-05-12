@@ -1,7 +1,6 @@
 import { WebSocket } from "ws";
 import { pool } from "../db.js";
 import { symbols, lastSaved, lastSentCandle, THROTTLE_MS } from "../state/store.js";
-import { matchOrders } from "../services/orderService.js";
 
 export function connectBinance(wss,triggerMatch) {
   const streams = symbols
@@ -13,7 +12,20 @@ export function connectBinance(wss,triggerMatch) {
   );
 
   binanceWS.on("open", () => {
-    console.log("📡 Binance WS connected");
+    console.log("Binance WS connected");
+  });
+
+  binanceWS.on("error", (err) => {
+    if (err.code === "EAI_AGAIN") {
+      console.log(
+        "\n Binance network error , Please run server again\n"
+      );
+      process.exit(1);
+    }
+    console.log(
+      "Binance WS error:",
+      err.message
+    );
   });
 
   binanceWS.on("message", async (msg) => {
@@ -28,7 +40,6 @@ export function connectBinance(wss,triggerMatch) {
       if (lastSaved.get(symbol) && now - lastSaved.get(symbol) < THROTTLE_MS) { //limitng api calls as it normally runs many times in 1 second
         return;
       }
-
       lastSaved.set(symbol, now);
 
       await pool.query(
@@ -95,7 +106,7 @@ export function connectBinance(wss,triggerMatch) {
   });
 
   binanceWS.on("close", () => {
-    console.log("⚠️ Reconnecting Binance...");
+    console.log("Reconnecting Binance...");
     setTimeout(() => connectBinance(wss), 2000); //retrying
   });
 }

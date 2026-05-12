@@ -1,5 +1,6 @@
 import express from "express";
 import { pool } from "../db.js";
+import {auth} from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -40,6 +41,37 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error("HISTORY ERROR:", err.message);
     res.status(500).json({ error: "server error" });
+  }
+});
+
+// Get trade history for a symbol
+router.get("/trades/:symbol", auth, async (req, res) => {
+  try {
+    const { symbol } = req.params;
+
+    const userId = req.user.user_id;
+
+    const result = await pool.query(
+      `SELECT *
+       FROM trades
+       WHERE symbol=$1
+       AND (
+         buyer_id=$2
+         OR seller_id=$2
+       )
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [symbol, userId]
+    );
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error("Trade history error:", err);
+
+    res.status(500).json({
+      error: "Failed to fetch trades"
+    });
   }
 });
 

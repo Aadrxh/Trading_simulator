@@ -1,14 +1,15 @@
 import { symbols, backfillStore, setBackfillDone } from "../state/store.js";
 
 export async function cleanupOldData(pool) {
-  try {
+  try {                   //six days assumptiion should be mentioned in the documentation
     await pool.query(`
       DELETE FROM ticks
-      WHERE time < NOW() - INTERVAL '6 days'
+      WHERE time < NOW() - INTERVAL '6 days' 
     `);
-    console.log("🧹 Cleanup done");
+    console.log("Cleanup done");
   } catch (err) {
-    console.error("Cleanup error:", err.message);
+    console.error("Cleanup error: Make sure the database is running");
+    process.exit(1); //remove this if you wanna run the server without cleanup incase cleanup fails(there will be visual defects)
   }
 }
 
@@ -51,13 +52,12 @@ export async function backfill() {
 
         if (lastCandleTime === startTime) break;
 
-        startTime = lastCandleTime + 60000; //milliseconds
+        startTime = lastCandleTime + 60000; //minute in milliseconds
 
         if (candles.length === 0) {
-          console.log("❌ Backfill failed for:", symbol);
+          console.log("Backfill failed for:", symbol);
           continue;
         }
-
         console.log(
           symbol,
           "Fetched:",
@@ -66,14 +66,13 @@ export async function backfill() {
           new Date(lastCandleTime)
         );
       }
-
       backfillStore.set(symbol, candles);
     }
 
-    console.log("✅ Backfill complete");
+    console.log("Backfill complete!");
     setBackfillDone(true);
 
   } catch (err) {
-    console.error("Backfill error:", err.message);
+    console.error("Backfill error: Please run the server again");
   }
 }

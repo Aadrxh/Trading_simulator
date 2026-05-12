@@ -1,7 +1,6 @@
 export function validateOrder(data) {
   const { symbol, type, side, price, quantity } = data;
 
-  // ❌ user_id removed from validation (comes from auth middleware)
   if (!symbol || !type || !side || quantity === undefined) {
     return "Missing required fields";
   }
@@ -28,12 +27,12 @@ export function validateOrder(data) {
     }
   }
 
-  // 🔥 SECURITY: prevent huge orders
+  //prevent huge orders
   if (qty > 1000000) {
     return "Order too large";
   }
 
-  // 🔒 SECURITY HARDENING (precision abuse protection)
+  //precision abuse protection
   if (qty.toString().split(".")[1]?.length > 8) {
     return "Quantity precision too high";
   }

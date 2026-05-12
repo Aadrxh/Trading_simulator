@@ -2,11 +2,28 @@ let isMatching = false;
 const pending = new Map();
 
 //this is to avoid conflict between binance trigerred matchorder and order triggered matchorder by using a queue
-
 export function createMatchingEngine(matchOrders, orderBook, broadcast) {
-  return async function triggerMatch(symbol, price) {
-    pending.set(symbol, price);
 
+  async function sendOrderBook(sym) {
+    const buys = orderBook.BUY.get(sym) || [];
+    const sells = orderBook.SELL.get(sym) || [];
+
+    broadcast({
+      type: "orderbook",
+      data: {
+        symbol: sym,
+        buys: buys.slice(0, 10),
+        sells: sells.slice(0, 10)
+      }
+    });
+  }
+
+  async function triggerMatch(symbol, price) {
+    //send book
+    // even if no trade happens
+    await sendOrderBook(symbol);
+
+    pending.set(symbol, price);
     if (isMatching) return;
 
     isMatching = true;
@@ -17,23 +34,15 @@ export function createMatchingEngine(matchOrders, orderBook, broadcast) {
         pending.delete(sym);
 
         await matchOrders(sym, p, broadcast);
-
-        const buys = orderBook.BUY.get(sym) || [];
-        const sells = orderBook.SELL.get(sym) || [];
-
-        broadcast({
-          type: "orderbook",
-          data: {
-            symbol: sym,
-            buys: buys.slice(0, 10),
-            sells: sells.slice(0, 10)
-          }
-        });
+        // send book after matching too
+        await sendOrderBook(sym);
       }
+
     } catch (err) {
       console.error("Match pipeline error:", err);
     } finally {
       isMatching = false;
     }
-  };
-} 
+  }
+  return triggerMatch;
+}

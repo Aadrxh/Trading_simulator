@@ -1,78 +1,68 @@
 import { useState } from "react";
 
 export default function Auth({ onLogin }) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const register = async () => {
+  const handleAuth = async (type) => {
     try {
-      const res = await fetch("http://localhost:3000/auth/register", {
+      setError("");
+
+      // 🔒 SECURITY: basic validation
+      if (!email || !password) {
+        setError("Missing fields");
+        return;
+      }
+
+      const res = await fetch(`http://localhost:3000/auth/${type}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({
+          email,     // ✅ FIX (was username before)
+          password
+        })
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Register failed");
+        setError(data.error || "Request failed");
+        return;
       }
 
       localStorage.setItem("token", data.token);
       onLogin();
 
     } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const login = async () => {
-    try {
-      const res = await fetch("http://localhost:3000/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ username, password })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Login failed");
-      }
-
-      localStorage.setItem("token", data.token);
-      onLogin();
-
-    } catch (err) {
-      setError(err.message);
+      console.error("Auth error:", err);
+      setError("Server error");
     }
   };
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div className="auth">
       <h2>Auth</h2>
 
       <input
-        placeholder="username"
-        value={username}
-        onChange={e => setUsername(e.target.value)}
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
       />
 
       <input
         type="password"
-        placeholder="password"
+        placeholder="Password"
         value={password}
-        onChange={e => setPassword(e.target.value)}
+        onChange={(e) => setPassword(e.target.value)}
       />
 
       <div style={{ marginTop: "10px" }}>
-        <button onClick={login}>Login</button>
-        <button onClick={register}>Register</button>
+        <button onClick={() => handleAuth("login")}>Login</button>
+        <button onClick={() => handleAuth("register")}>Register</button>
       </div>
 
       {error && (
