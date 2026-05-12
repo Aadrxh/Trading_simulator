@@ -84,8 +84,7 @@ Trading_simulator/
 ├── client/
 ├── server/
 ├── docker-compose.yml
-├── .env.example
-└── backup.sql
+└── .env
 ```
 
 ---
